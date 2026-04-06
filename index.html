@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#f5edda">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="준비물챙기기">
+<meta name="description" content="까먹지 말고 다 챙겨가자! 준비물 체크리스트 앱">
+<title>🎒 준비물 챙기기</title>
+<!-- PWA manifest is inline via JS below -->
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🎒</text></svg>">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;600;700;900&display=swap');
+  *{margin:0;padding:0;box-sizing:border-box}
+  :root{
+    --yellow-light:#f0e683;--yellow:#efcf5b;--orange:#f2b54a;
+    --coral:#ef6461;--blue:#3567a0;--pink:#e25582;
+    --teal:#39b19a;--tan:#c4b07d;
+    --bg:#f5edda;--card:#fffdf5;--text:#4a3f2f;
+    --sub:#9e9279;--checked-bg:#f0e8d4;--border-light:rgba(74,63,47,.08);
+  }
+  body{font-family:'Noto Sans KR',sans-serif;background:var(--bg);color:var(--text);min-height:100vh;min-height:100dvh;padding-bottom:100px;overflow-x:hidden;-webkit-tap-highlight-color:transparent}
+  body::before,body::after{content:'';position:fixed;border-radius:50%;z-index:0;pointer-events:none;animation:floatBlob 8s ease-in-out infinite alternate}
+  body::before{width:280px;height:280px;background:radial-gradient(circle,rgba(242,181,74,.10),transparent 70%);top:-80px;right:-80px}
+  body::after{width:220px;height:220px;background:radial-gradient(circle,rgba(57,177,154,.08),transparent 70%);bottom:40px;left:-60px;animation-delay:-4s}
+  @keyframes floatBlob{to{transform:translate(30px,20px) scale(1.1)}}
+
+  .header{position:sticky;top:0;z-index:100;background:rgba(245,237,218,.88);backdrop-filter:blur(16px);-webkit-backdrop-filter:blur(16px);padding:20px 24px 16px;border-bottom:1px solid var(--border-light)}
+  .header-row{display:flex;align-items:center;justify-content:space-between}
+  .header h1{font-size:26px;font-weight:900;background:linear-gradient(135deg,var(--orange),var(--coral));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text}
+  .header p{font-size:13px;color:var(--sub);margin-top:2px}
+  .header-actions{display:flex;gap:6px}
+  .header-btn{width:38px;height:38px;border-radius:12px;border:none;background:var(--card);box-shadow:0 2px 8px rgba(74,63,47,.08);font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .25s;color:var(--text);position:relative}
+  .header-btn:hover{transform:scale(1.08);box-shadow:0 4px 14px rgba(74,63,47,.12)}
+  .header-btn:active{transform:scale(.95)}
+
+  .dropdown{position:absolute;top:46px;right:0;background:var(--card);border-radius:16px;box-shadow:0 8px 32px rgba(74,63,47,.15);padding:8px;min-width:185px;z-index:200;display:none;animation:fadeUp .25s ease}
+  .dropdown.show{display:block}
+  .dropdown-item{display:flex;align-items:center;gap:10px;padding:12px 14px;border-radius:12px;cursor:pointer;font-size:14px;font-weight:600;transition:background .2s;white-space:nowrap}
+  .dropdown-item:hover{background:var(--checked-bg)}
+  .dropdown-item .dd-icon{font-size:18px;width:24px;text-align:center}
+  .dropdown-divider{height:1px;background:var(--border-light);margin:4px 8px}
+
+  .tabs{display:flex;gap:6px;padding:16px 24px 8px;overflow-x:auto;position:relative;z-index:10;-ms-overflow-style:none;scrollbar-width:none}
+  .tabs::-webkit-scrollbar{display:none}
+  .tab-btn{flex-shrink:0;padding:10px 20px;border-radius:50px;border:2px solid rgba(196,176,125,.25);background:var(--card);color:var(--sub);font-size:14px;font-weight:600;cursor:pointer;transition:all .3s cubic-bezier(.4,0,.2,1);position:relative;overflow:hidden;font-family:inherit}
+  .tab-btn::after{content:'';position:absolute;inset:0;background:linear-gradient(135deg,var(--orange),var(--coral));opacity:0;transition:opacity .3s;border-radius:50px;z-index:-1}
+  .tab-btn:hover{border-color:var(--orange);color:var(--orange);transform:translateY(-2px)}
+  .tab-btn.active{border-color:transparent;color:#fff;box-shadow:0 4px 20px rgba(242,181,74,.30);transform:translateY(-2px)}
+  .tab-btn.active::after{opacity:1}
+
+  .container{max-width:520px;margin:0 auto;padding:8px 20px;position:relative;z-index:10}
+  .view{display:none}.view.active{display:block;animation:fadeUp .4s ease}
+  @keyframes fadeUp{from{opacity:0;transform:translateY(16px)}to{opacity:1;transform:translateY(0)}}
+
+  .sets-grid{display:flex;flex-direction:column;gap:12px;margin-top:12px}
+  .set-card{background:var(--card);border-radius:20px;padding:20px 22px;box-shadow:0 2px 16px rgba(74,63,47,.06);cursor:pointer;transition:all .3s cubic-bezier(.4,0,.2,1);display:flex;align-items:center;gap:16px;border:2px solid transparent;overflow:hidden}
+  .set-card:hover{transform:translateY(-3px);box-shadow:0 8px 30px rgba(74,63,47,.10);border-color:rgba(242,181,74,.25)}
+  .set-card:active{transform:scale(.98)}
+  .set-icon{width:52px;height:52px;border-radius:16px;display:flex;align-items:center;justify-content:center;font-size:26px;flex-shrink:0}
+  .set-info h3{font-size:16px;font-weight:700}.set-info p{font-size:12px;color:var(--sub);margin-top:2px}
+  .set-badge{margin-left:auto;padding:4px 12px;border-radius:50px;font-size:11px;font-weight:700;background:rgba(242,181,74,.12);color:var(--orange)}
+  .set-icon.yellow-light{background:rgba(240,230,131,.25)}.set-icon.yellow{background:rgba(239,207,91,.20)}.set-icon.orange{background:rgba(242,181,74,.18)}.set-icon.coral{background:rgba(239,100,97,.12)}.set-icon.blue{background:rgba(53,103,160,.12)}.set-icon.pink{background:rgba(226,85,130,.10)}.set-icon.teal{background:rgba(57,177,154,.12)}.set-icon.tan{background:rgba(196,176,125,.18)}
+
+  .checklist-header{display:flex;align-items:center;gap:12px;margin:12px 0 4px}
+  .back-btn{width:40px;height:40px;border-radius:14px;border:none;background:var(--card);box-shadow:0 2px 10px rgba(74,63,47,.08);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .25s;color:var(--text)}
+  .back-btn:hover{transform:scale(1.1)}
+  .checklist-title{font-size:20px;font-weight:800}
+
+  .progress-wrap{margin:16px 0 10px;background:rgba(196,176,125,.18);border-radius:50px;height:10px;overflow:hidden}
+  .progress-bar{height:100%;border-radius:50px;background:linear-gradient(90deg,var(--yellow),var(--orange));transition:width .5s cubic-bezier(.4,0,.2,1);position:relative}
+  .progress-bar::after{content:'';position:absolute;right:0;top:0;width:20px;height:100%;background:rgba(255,255,255,.35);border-radius:50px}
+  .progress-text{font-size:13px;font-weight:600;color:var(--sub);margin-bottom:16px;text-align:right}
+
+  .checklist{display:flex;flex-direction:column;gap:8px}
+  .check-item{background:var(--card);border-radius:16px;padding:16px 18px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 12px rgba(74,63,47,.05);cursor:pointer;transition:all .4s cubic-bezier(.4,0,.2,1);border:2px solid transparent;user-select:none;order:0}
+  .check-item:hover{border-color:rgba(242,181,74,.15)}.check-item:active{transform:scale(.97)}
+  .check-item.checked{background:var(--checked-bg);border-color:rgba(57,177,154,.18);order:1;opacity:.7}
+  .check-item.checked .item-text{text-decoration:line-through;color:var(--sub)}
+  .check-item.checked .custom-check{background:var(--teal);border-color:var(--teal)}
+  .check-item.checked .custom-check svg{opacity:1;transform:scale(1)}
+  .check-item.checking{animation:popCheck .45s cubic-bezier(.4,0,.2,1)}
+  .check-item.unchecking{animation:popUncheck .35s ease}
+  @keyframes popCheck{0%{transform:scale(1)}30%{transform:scale(1.04)}50%{transform:scale(.97)}100%{transform:scale(1)}}
+  @keyframes popUncheck{0%{transform:scale(1)}50%{transform:scale(1.03)}100%{transform:scale(1)}}
+  .custom-check{width:28px;height:28px;border-radius:10px;border:2.5px solid var(--tan);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .3s cubic-bezier(.4,0,.2,1);background:#fff}
+  .custom-check svg{width:16px;height:16px;stroke:#fff;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:0;transform:scale(.5);transition:all .3s cubic-bezier(.4,0,.2,1)}
+  .item-text{font-size:15px;font-weight:600;transition:all .3s}
+
+  .reset-wrap{text-align:center;margin-top:20px}
+  .reset-btn{padding:10px 24px;border-radius:50px;border:2px solid rgba(239,100,97,.2);background:transparent;color:var(--coral);font-size:13px;font-weight:700;cursor:pointer;transition:all .25s;font-family:inherit}
+  .reset-btn:hover{background:rgba(239,100,97,.08);border-color:var(--coral)}
+
+  .section-label{font-size:13px;font-weight:700;color:var(--sub);text-transform:uppercase;letter-spacing:1px;margin:20px 0 10px}
+  .edit-set-card{background:var(--card);border-radius:20px;padding:18px 20px;margin-bottom:10px;box-shadow:0 2px 12px rgba(74,63,47,.05)}
+  .edit-set-top{display:flex;align-items:center;gap:8px;margin-bottom:10px;flex-wrap:wrap}
+  .edit-set-top h3{font-size:15px;font-weight:700;flex:1;min-width:60px}
+  .edit-tag-wrap{display:flex;flex-wrap:wrap;gap:6px}
+  .edit-tag{padding:5px 12px;border-radius:50px;font-size:12px;font-weight:600;background:rgba(242,181,74,.10);color:var(--orange)}
+  .mini-btn{padding:6px 14px;border-radius:50px;border:none;font-size:12px;font-weight:700;cursor:pointer;transition:all .25s;font-family:inherit;white-space:nowrap}
+  .mini-btn.del{background:rgba(239,100,97,.10);color:var(--coral)}.mini-btn.del:hover{background:rgba(239,100,97,.20)}
+  .mini-btn.edit-items-btn{background:rgba(53,103,160,.10);color:var(--blue)}.mini-btn.edit-items-btn:hover{background:rgba(53,103,160,.20)}
+  .mini-btn.copy-btn{background:rgba(57,177,154,.10);color:var(--teal)}.mini-btn.copy-btn:hover{background:rgba(57,177,154,.20)}
+
+  .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:#fff;padding:12px 24px;border-radius:50px;font-size:14px;font-weight:600;z-index:1000;opacity:0;transition:all .35s cubic-bezier(.4,0,.2,1);pointer-events:none;box-shadow:0 4px 20px rgba(74,63,47,.25);white-space:nowrap;max-width:90vw;text-align:center}
+  .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+
+  .modal-overlay{position:fixed;inset:0;z-index:999;background:rgba(74,63,47,.35);backdrop-filter:blur(6px);-webkit-backdrop-filter:blur(6px);display:none;align-items:flex-end;justify-content:center}
+  .modal-overlay.show{display:flex;animation:fadeIn .2s}
+  @keyframes fadeIn{from{opacity:0}to{opacity:1}}
+  .modal{background:var(--card);border-radius:28px 28px 0 0;width:100%;max-width:520px;padding:28px 24px 36px;animation:slideUp .35s cubic-bezier(.4,0,.2,1);max-height:85vh;overflow-y:auto}
+  @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  .modal h2{font-size:20px;font-weight:800;margin-bottom:20px;color:var(--text)}
+  .modal label{font-size:13px;font-weight:700;color:var(--sub);display:block;margin-bottom:6px;margin-top:14px}
+  .modal input[type="text"],.modal select{width:100%;padding:12px 16px;border:2px solid rgba(196,176,125,.25);border-radius:14px;font-size:15px;font-family:inherit;outline:none;transition:border-color .25s;background:#fff;color:var(--text)}
+  .modal input[type="text"]:focus{border-color:var(--orange)}
+  .emoji-pick{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+  .emoji-opt{width:44px;height:44px;border-radius:12px;border:2px solid transparent;background:var(--checked-bg);font-size:22px;display:flex;align-items:center;justify-content:center;cursor:pointer;transition:all .25s}
+  .emoji-opt:hover,.emoji-opt.sel{border-color:var(--orange);background:rgba(242,181,74,.12);transform:scale(1.1)}
+  .color-pick-row{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .color-dot{width:34px;height:34px;border-radius:50%;border:3px solid transparent;cursor:pointer;transition:all .25s;display:inline-block}
+  .color-dot:hover,.color-dot.sel{border-color:var(--text);transform:scale(1.15)}
+  .big-btn{width:100%;padding:16px;border-radius:16px;border:none;font-size:16px;font-weight:700;color:#fff;cursor:pointer;background:linear-gradient(135deg,var(--orange),var(--coral));box-shadow:0 4px 20px rgba(242,181,74,.30);margin-top:22px;transition:all .3s;font-family:inherit}
+  .big-btn:hover{transform:translateY(-2px);box-shadow:0 6px 28px rgba(242,181,74,.40)}.big-btn:active{transform:scale(.97)}
+  .big-btn.secondary{background:var(--checked-bg);color:var(--sub);box-shadow:none;margin-top:8px}
+  .big-btn.teal-btn{background:linear-gradient(135deg,var(--teal),var(--blue))}
+
+  .fab{position:fixed;bottom:28px;right:28px;width:60px;height:60px;border-radius:50%;border:none;background:linear-gradient(135deg,var(--orange),var(--coral));color:#fff;font-size:28px;box-shadow:0 6px 24px rgba(239,100,97,.30);cursor:pointer;z-index:90;display:none;align-items:center;justify-content:center;transition:all .3s}
+  .fab:hover{transform:scale(1.1) rotate(90deg)}.fab.show{display:flex}
+
+  .item-editor-list{margin-top:10px}
+  .item-editor-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+  .item-editor-row input{flex:1}
+  .item-editor-row .remove-item-btn{width:34px;height:34px;border-radius:10px;border:none;background:rgba(239,100,97,.10);color:var(--coral);font-size:18px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .2s}
+  .item-editor-row .remove-item-btn:hover{background:rgba(239,100,97,.20)}
+  .add-item-row{display:flex;gap:8px;margin-top:8px}
+  .add-item-row input{flex:1}
+  .add-item-row button{padding:10px 18px;border-radius:14px;border:none;background:var(--teal);color:#fff;font-weight:700;font-size:14px;cursor:pointer;transition:all .25s;font-family:inherit}
+  .add-item-row button:hover{opacity:.85}
+
+  .confetti-piece{position:fixed;z-index:9999;pointer-events:none;animation:confettiFall 1.2s cubic-bezier(.25,.46,.45,.94) forwards}
+  @keyframes confettiFall{0%{opacity:1;transform:translateY(0) rotate(0deg) scale(1)}100%{opacity:0;transform:translateY(400px) rotate(720deg) scale(.3)}}
+  .completion-banner{display:none;text-align:center;padding:32px 20px;animation:fadeUp .5s ease}
+  .completion-banner.show{display:block}
+  .completion-banner .big-emoji{font-size:64px;animation:bounce 1s ease infinite}
+  @keyframes bounce{0%,100%{transform:translateY(0)}50%{transform:translateY(-12px)}}
+  .completion-banner h2{font-size:22px;font-weight:900;background:linear-gradient(135deg,var(--teal),var(--blue));-webkit-background-clip:text;-webkit-text-fill-color:transparent;background-clip:text;margin-top:12px}
+  .completion-banner p{color:var(--sub);margin-top:6px;font-size:14px}
+
+  .copy-preview{margin-top:12px;padding:14px 16px;background:var(--checked-bg);border-radius:14px}
+  .copy-preview-title{font-size:13px;font-weight:700;color:var(--sub);margin-bottom:8px}
+  .copy-preview-tags{display:flex;flex-wrap:wrap;gap:5px}
+  .copy-preview-tags span{padding:4px 10px;border-radius:50px;font-size:11px;font-weight:600;background:rgba(242,181,74,.12);color:var(--orange)}
+
+  .share-url-box{margin-top:14px;background:var(--checked-bg);border-radius:14px;padding:14px 16px;display:flex;align-items:center;gap:10px}
+  .share-url-box input{flex:1;background:none;border:none;font-size:13px;color:var(--text);font-family:inherit;outline:none;font-weight:600}
+  .share-url-box button{padding:8px 16px;border-radius:10px;border:none;background:var(--teal);color:#fff;font-size:13px;font-weight:700;cursor:pointer;font-family:inherit;white-space:nowrap;transition:all .2s}
+  .share-url-box button:hover{opacity:.85}
+
+  /* install banner */
+  .install-banner{display:none;background:var(--card);border-radius:20px;padding:18px 20px;margin:12px 0;box-shadow:0 2px 16px rgba(74,63,47,.06);text-align:center;animation:fadeUp .4s ease}
+  .install-banner.show{display:block}
+  .install-banner p{font-size:14px;font-weight:600;margin-bottom:12px}
+  .install-banner small{font-size:12px;color:var(--sub);display:block;margin-top:8px}
+  .install-btn{padding:12px 28px;border-radius:50px;border:none;background:linear-gradient(135deg,var(--teal),var(--blue));color:#fff;font-size:14px;font-weight:700;cursor:pointer;font-family:inherit;transition:all .25s;box-shadow:0 4px 16px rgba(57,177,154,.25)}
+  .install-btn:hover{transform:translateY(-2px)}
+  .install-dismiss{background:none;border:none;color:var(--sub);font-size:13px;cursor:pointer;font-family:inherit;margin-top:4px;padding:6px 12px}
+
+  .hidden-file{display:none}
+  @media(max-width:400px){.header h1{font-size:22px}.container{padding:8px 14px}}
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-row">
+    <div><h1>🎒 준비물 챙기기</h1><p>까먹지 말고 다 챙겨가자!</p></div>
+    <div class="header-actions">
+      <button class="header-btn" id="menuBtn" title="메뉴">⋮
+        <div class="dropdown" id="menuDropdown">
+          <div class="dropdown-item" id="menuShareURL"><span class="dd-icon">🔗</span>URL로 공유하기</div>
+          <div class="dropdown-item" id="menuExportJSON"><span class="dd-icon">📦</span>JSON 파일 내보내기</div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-item" id="menuImportURL"><span class="dd-icon">📲</span>URL로 가져오기</div>
+          <div class="dropdown-item" id="menuImportJSON"><span class="dd-icon">📂</span>JSON 파일 가져오기</div>
+          <div class="dropdown-divider"></div>
+          <div class="dropdown-item" id="menuResetAll" style="color:var(--coral)"><span class="dd-icon">🗑️</span>전체 초기화</div>
+        </div>
+      </button>
+    </div>
+  </div>
+</div>
+
+<div class="tabs">
+  <button class="tab-btn active" data-tab="home">🏠 세트 목록</button>
+  <button class="tab-btn" data-tab="manage">✏️ 세트 관리</button>
+</div>
+
+<div class="container">
+  <div id="view-home" class="view active">
+    <!-- Install Banner -->
+    <div class="install-banner" id="installBanner">
+      <p>📱 홈 화면에 추가하면<br>앱처럼 쓸 수 있어!</p>
+      <button class="install-btn" id="installBtn">홈 화면에 추가</button>
+      <br><button class="install-dismiss" id="installDismiss">나중에</button>
+    </div>
+    <div class="sets-grid" id="setsGrid"></div>
+  </div>
+  <div id="view-checklist" class="view">
+    <div class="checklist-header"><button class="back-btn" id="backBtn">←</button><span class="checklist-title" id="checklistTitle"></span></div>
+    <div class="progress-wrap"><div class="progress-bar" id="progressBar" style="width:0%"></div></div>
+    <div class="progress-text" id="progressText">0 / 0 완료</div>
+    <div class="completion-banner" id="completionBanner"><div class="big-emoji">🎉</div><h2>전부 다 챙겼어!</h2><p>완벽한 준비 끝~ 출발하자!</p></div>
+    <div class="checklist" id="checklist"></div>
+    <div class="reset-wrap" id="resetWrap" style="display:none"><button class="reset-btn" id="resetBtn">체크 초기화</button></div>
+  </div>
+  <div id="view-manage" class="view">
+    <div class="section-label">내 세트 목록</div>
+    <div id="manageList"></div>
+  </div>
+</div>
+
+<button class="fab" id="fab" title="새 세트 추가">+</button>
+<div class="toast" id="toast"></div>
+<input type="file" accept=".json" class="hidden-file" id="hiddenFileInput">
+
+<!-- Modal: New Set / Copy -->
+<div class="modal-overlay" id="modalNewSet"><div class="modal">
+  <h2 id="newSetModalTitle">✨ 새 세트 만들기</h2>
+  <label>세트 이름</label><input type="text" id="newSetName" placeholder="예: 캠핑 세트">
+  <label>아이콘 선택</label><div class="emoji-pick" id="emojiPick"></div>
+  <label>색상</label><div class="color-pick-row" id="colorPick"></div>
+  <label>아이템 (쉼표로 구분)</label><input type="text" id="newSetItems" placeholder="텐트, 침낭, 랜턴, 버너">
+  <div class="copy-preview" id="copyPreview" style="display:none"><div class="copy-preview-title">📋 아이템 미리보기</div><div class="copy-preview-tags" id="copyPreviewTags"></div></div>
+  <button class="big-btn" id="createSetBtn">세트 만들기 🚀</button>
+  <button class="big-btn secondary" id="cancelNewSet">취소</button>
+</div></div>
+
+<!-- Modal: Edit Items -->
+<div class="modal-overlay" id="modalEditItems"><div class="modal">
+  <h2>📝 아이템 수정</h2>
+  <div id="editItemsList" class="item-editor-list"></div>
+  <div class="add-item-row"><input type="text" id="addItemInput" placeholder="새 아이템 이름"><button id="addItemBtn">추가</button></div>
+  <button class="big-btn" id="saveItemsBtn">저장하기 💾</button>
+  <button class="big-btn secondary" id="cancelEditItems">취소</button>
+</div></div>
+
+<!-- Modal: Share URL -->
+<div class="modal-overlay" id="modalShareURL"><div class="modal">
+  <h2>🔗 URL로 공유하기</h2>
+  <p style="font-size:14px;color:var(--sub);margin-bottom:4px">이 링크를 카톡이나 메모에 붙여넣으면<br>다른 기기에서 세트를 그대로 불러올 수 있어!</p>
+  <div class="share-url-box"><input type="text" id="shareURLInput" readonly><button id="copyURLBtn">복사</button></div>
+  <p style="font-size:12px;color:var(--tan);margin-top:10px;text-align:center">세트 <span id="shareSetCount">0</span>개 · 아이템 총 <span id="shareItemCount">0</span>개 포함</p>
+  <button class="big-btn teal-btn" id="shareNativeBtn" style="display:none">📤 공유하기</button>
+  <button class="big-btn secondary" id="cancelShareURL">닫기</button>
+</div></div>
+
+<!-- Modal: Import URL -->
+<div class="modal-overlay" id="modalImportURL"><div class="modal">
+  <h2>📲 URL로 가져오기</h2>
+  <label>공유받은 URL을 붙여넣어줘</label>
+  <input type="text" id="importURLInput" placeholder="https://...?data=...">
+  <button class="big-btn teal-btn" id="importURLBtn">가져오기 📲</button>
+  <button class="big-btn secondary" id="cancelImportURL">취소</button>
+</div></div>
+
+<script>
+// ═══════════════════════════════
+// ── PWA: Service Worker + Manifest (inline) ──
+// ═══════════════════════════════
+
+// Generate manifest blob URL
+const manifestData = {
+  name: "준비물 챙기기",
+  short_name: "준비물",
+  description: "까먹지 말고 다 챙겨가자!",
+  start_url: "./",
+  display: "standalone",
+  background_color: "#f5edda",
+  theme_color: "#f5edda",
+  orientation: "portrait",
+  icons: [
+    { src: "data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23f5edda'/><text y='.88em' x='.1em' font-size='80'>🎒</text></svg>", sizes: "any", type: "image/svg+xml", purpose: "any" }
+  ]
+};
+const manifestBlob = new Blob([JSON.stringify(manifestData)], { type: 'application/json' });
+const manifestURL = URL.createObjectURL(manifestBlob);
+const linkEl = document.createElement('link');
+linkEl.rel = 'manifest';
+linkEl.href = manifestURL;
+document.head.appendChild(linkEl);
+
+// Register Service Worker
+const swCode = `
+const CACHE = 'packing-v2';
+const ASSETS = ['/'];
+self.addEventListener('install', e => { self.skipWaiting(); });
+self.addEventListener('activate', e => { e.waitUntil(clients.claim()); });
+self.addEventListener('fetch', e => {
+  e.respondWith(
+    fetch(e.request).then(r => {
+      if(r.ok && e.request.method === 'GET'){
+        const clone = r.clone();
+        caches.open(CACHE).then(c => c.put(e.request, clone));
+      }
+      return r;
+    }).catch(() => caches.match(e.request))
+  );
+});
+`;
+if ('serviceWorker' in navigator) {
+  const swBlob = new Blob([swCode], { type: 'application/javascript' });
+  const swURL = URL.createObjectURL(swBlob);
+  navigator.serviceWorker.register(swURL).catch(() => {});
+}
+
+// ── PWA Install Prompt ──
+let deferredPrompt = null;
+window.addEventListener('beforeinstallprompt', e => {
+  e.preventDefault();
+  deferredPrompt = e;
+  // show banner if not dismissed
+  if (!localStorage.getItem('installDismissed')) {
+    document.getElementById('installBanner').classList.add('show');
+  }
+});
+
+document.getElementById('installBtn').addEventListener('click', () => {
+  if (deferredPrompt) {
+    deferredPrompt.prompt();
+    deferredPrompt.userChoice.then(r => {
+      if (r.outcome === 'accepted') showToast('🎉 홈 화면에 추가됐어!');
+      deferredPrompt = null;
+      document.getElementById('installBanner').classList.remove('show');
+    });
+  } else {
+    // iOS or no prompt available
+    const isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+    if (isIOS) {
+      alert('Safari 하단 공유 버튼(□↑)을 누른 뒤\n"홈 화면에 추가"를 선택해줘!');
+    } else {
+      alert('브라우저 메뉴에서 "홈 화면에 추가" 또는\n"앱 설치"를 선택해줘!');
+    }
+    document.getElementById('installBanner').classList.remove('show');
+  }
+});
+
+document.getElementById('installDismiss').addEventListener('click', () => {
+  document.getElementById('installBanner').classList.remove('show');
+  localStorage.setItem('installDismissed', 'true');
+});
+
+// Show iOS-specific banner
+window.addEventListener('load', () => {
+  const isIOS = /iphone|ipad|ipod/.test(navigator.userAgent.toLowerCase());
+  const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+  if (isIOS && !isStandalone && !localStorage.getItem('installDismissed')) {
+    document.getElementById('installBanner').classList.add('show');
+  }
+});
+
+// ═══════════════════════════════
+// ── App Logic ──
+// ═══════════════════════════════
+
+const DEFAULT_SETS=[
+  {id:'basic',name:'기본 세트',icon:'🎒',color:'orange',items:['지갑','핸드폰','충전기','이어폰','손수건','물병','우산']},
+  {id:'onenight',name:'1박2일 세트',icon:'🏕️',color:'yellow',items:['세면도구','속옷','잠옷','수건','슬리퍼','간식','보조배터리','여벌옷']},
+  {id:'abroad',name:'해외여행 세트',icon:'✈️',color:'blue',items:['여권','항공권','유심/와이파이','여행자보험','어댑터','달러/카드','세면도구','상비약','여벌옷','목베개','캐리어']},
+  {id:'school',name:'학교 세트',icon:'📚',color:'coral',items:['교과서','필기구','노트','학생증','물병','도시락','체육복','실내화']},
+  {id:'workout',name:'운동 세트',icon:'💪',color:'teal',items:['운동복','운동화','수건','물병','이어폰','락커 자물쇠']},
+];
+const EMOJIS=['🎒','✈️','🏕️','📚','💪','🏖️','🎿','🎵','💼','🧳','🚗','🎨','📷','🎮','🧘','🏔️','☕','🍳','🎂','🏠'];
+const COLORS=[{name:'yellow-light',hex:'#f0e683'},{name:'yellow',hex:'#efcf5b'},{name:'orange',hex:'#f2b54a'},{name:'coral',hex:'#ef6461'},{name:'blue',hex:'#3567a0'},{name:'pink',hex:'#e25582'},{name:'teal',hex:'#39b19a'},{name:'tan',hex:'#c4b07d'}];
+
+let sets=[],currentSetId=null,checkedItems={},editingSetId=null,selectedEmoji='🎒',selectedColor='orange';
+
+function load(){const s=localStorage.getItem('packingSets');sets=s?JSON.parse(s):JSON.parse(JSON.stringify(DEFAULT_SETS));const c=localStorage.getItem('packingChecks');if(c)checkedItems=JSON.parse(c);}
+function save(){localStorage.setItem('packingSets',JSON.stringify(sets));localStorage.setItem('packingChecks',JSON.stringify(checkedItems));}
+
+let toastTimer;
+function showToast(msg){const t=document.getElementById('toast');t.textContent=msg;t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>t.classList.remove('show'),2500);}
+
+const menuBtn=document.getElementById('menuBtn'),menuDD=document.getElementById('menuDropdown');
+menuBtn.addEventListener('click',e=>{e.stopPropagation();menuDD.classList.toggle('show');});
+document.addEventListener('click',()=>menuDD.classList.remove('show'));
+menuDD.addEventListener('click',e=>e.stopPropagation());
+
+function renderHome(){
+  const grid=document.getElementById('setsGrid');grid.innerHTML='';
+  sets.forEach(s=>{
+    const total=s.items.length,done=checkedItems[s.id]?Object.values(checkedItems[s.id]).filter(Boolean).length:0;
+    const card=document.createElement('div');card.className='set-card';
+    card.innerHTML=`<div class="set-icon ${s.color}">${s.icon}</div><div class="set-info"><h3>${s.name}</h3><p>${total}개 아이템${done>0?' · '+done+'개 체크됨':''}</p></div><div class="set-badge">${done}/${total}</div>`;
+    card.onclick=()=>openChecklist(s.id);grid.appendChild(card);
+  });
+}
+
+function openChecklist(id){currentSetId=id;const s=sets.find(x=>x.id===id);if(!s)return;document.getElementById('checklistTitle').textContent=s.icon+' '+s.name;showView('checklist');renderChecklist();}
+function renderChecklist(){
+  const s=sets.find(x=>x.id===currentSetId);if(!s)return;if(!checkedItems[s.id])checkedItems[s.id]={};
+  const list=document.getElementById('checklist');list.innerHTML='';
+  const unc=s.items.filter(i=>!checkedItems[s.id][i]),chk=s.items.filter(i=>checkedItems[s.id][i]);
+  [...unc,...chk].forEach(item=>{
+    const done=!!checkedItems[s.id][item];const el=document.createElement('div');
+    el.className='check-item'+(done?' checked':'');
+    el.innerHTML=`<div class="custom-check"><svg viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg></div><span class="item-text">${item}</span>`;
+    el.onclick=()=>toggleItem(s.id,item,el);list.appendChild(el);
+  });
+  document.getElementById('resetWrap').style.display=chk.length>0?'block':'none';updateProgress();
+}
+function toggleItem(sid,item,el){if(!checkedItems[sid])checkedItems[sid]={};const w=!!checkedItems[sid][item];checkedItems[sid][item]=!w;save();el.classList.add(w?'unchecking':'checking');setTimeout(()=>renderChecklist(),w?300:400);}
+function updateProgress(){
+  const s=sets.find(x=>x.id===currentSetId);if(!s)return;
+  const total=s.items.length,done=checkedItems[s.id]?Object.values(checkedItems[s.id]).filter(Boolean).length:0,pct=total>0?Math.round(done/total*100):0;
+  document.getElementById('progressBar').style.width=pct+'%';document.getElementById('progressText').textContent=`${done} / ${total} 완료`;
+  const banner=document.getElementById('completionBanner');
+  if(done===total&&total>0){banner.classList.add('show');if(!banner.dataset.celebrated){banner.dataset.celebrated='true';launchConfetti();}}
+  else{banner.classList.remove('show');banner.dataset.celebrated='';}
+}
+document.getElementById('resetBtn').onclick=()=>{if(!currentSetId)return;if(confirm('체크를 모두 초기화할까?')){checkedItems[currentSetId]={};save();renderChecklist();}};
+
+function renderManage(){
+  const list=document.getElementById('manageList');list.innerHTML='';
+  sets.forEach(s=>{
+    const card=document.createElement('div');card.className='edit-set-card';
+    card.innerHTML=`<div class="edit-set-top"><span style="font-size:24px">${s.icon}</span><h3>${s.name}</h3><button class="mini-btn copy-btn">복사</button><button class="mini-btn edit-items-btn">수정</button><button class="mini-btn del">삭제</button></div><div class="edit-tag-wrap">${s.items.map(i=>`<span class="edit-tag">${i}</span>`).join('')}</div>`;
+    card.querySelector('.del').onclick=()=>{if(confirm(`"${s.name}" 삭제할까?`)){sets=sets.filter(x=>x.id!==s.id);delete checkedItems[s.id];save();renderManage();renderHome();}};
+    card.querySelector('.edit-items-btn').onclick=()=>openEditItems(s.id);
+    card.querySelector('.copy-btn').onclick=()=>openCopySet(s.id);
+    list.appendChild(card);
+  });
+}
+
+function openCopySet(id){
+  const s=sets.find(x=>x.id===id);if(!s)return;selectedEmoji=s.icon;selectedColor=s.color;
+  document.getElementById('newSetModalTitle').textContent='📋 세트 복사하기';
+  document.getElementById('newSetName').value=s.name+' (복사)';document.getElementById('newSetItems').value=s.items.join(', ');
+  updateCopyPreview();initEmojiPicker();initColorPicker();document.getElementById('modalNewSet').classList.add('show');
+}
+
+function openEditItems(id){editingSetId=id;const s=sets.find(x=>x.id===id);if(!s)return;renderEditItemsList([...s.items]);document.getElementById('modalEditItems').classList.add('show');}
+function renderEditItemsList(items){
+  const c=document.getElementById('editItemsList');c.innerHTML='';
+  items.forEach((item,idx)=>{const row=document.createElement('div');row.className='item-editor-row';row.innerHTML=`<input type="text" value="${item}"><button class="remove-item-btn">×</button>`;row.querySelector('.remove-item-btn').onclick=()=>{items.splice(idx,1);renderEditItemsList(items);};c.appendChild(row);});
+  c._items=items;
+}
+document.getElementById('addItemBtn').onclick=()=>{const inp=document.getElementById('addItemInput');const v=inp.value.trim();if(!v)return;const c=document.getElementById('editItemsList');(c._items||[]).push(v);renderEditItemsList(c._items);inp.value='';};
+document.getElementById('addItemInput').onkeydown=e=>{if(e.key==='Enter')document.getElementById('addItemBtn').click();};
+document.getElementById('saveItemsBtn').onclick=()=>{
+  const c=document.getElementById('editItemsList'),ni=[];c.querySelectorAll('input').forEach(inp=>{const v=inp.value.trim();if(v)ni.push(v);});
+  const s=sets.find(x=>x.id===editingSetId);
+  if(s){if(checkedItems[s.id]){const ns=new Set(ni);Object.keys(checkedItems[s.id]).forEach(k=>{if(!ns.has(k))delete checkedItems[s.id][k];});}s.items=ni;save();renderManage();renderHome();showToast('저장 완료!');}
+  document.getElementById('modalEditItems').classList.remove('show');
+};
+document.getElementById('cancelEditItems').onclick=()=>document.getElementById('modalEditItems').classList.remove('show');
+
+function initEmojiPicker(){const w=document.getElementById('emojiPick');w.innerHTML='';EMOJIS.forEach(em=>{const b=document.createElement('div');b.className='emoji-opt'+(em===selectedEmoji?' sel':'');b.textContent=em;b.onclick=()=>{selectedEmoji=em;w.querySelectorAll('.emoji-opt').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');};w.appendChild(b);});}
+function initColorPicker(){const w=document.getElementById('colorPick');w.innerHTML='';COLORS.forEach(c=>{const d=document.createElement('div');d.className='color-dot'+(c.name===selectedColor?' sel':'');d.style.background=c.hex;d.onclick=()=>{selectedColor=c.name;w.querySelectorAll('.color-dot').forEach(x=>x.classList.remove('sel'));d.classList.add('sel');};w.appendChild(d);});}
+function updateCopyPreview(){const val=document.getElementById('newSetItems').value.trim();const p=document.getElementById('copyPreview'),t=document.getElementById('copyPreviewTags');if(val){const items=val.split(',').map(s=>s.trim()).filter(Boolean);p.style.display='block';t.innerHTML=items.map(i=>`<span>${i}</span>`).join('');}else{p.style.display='none';t.innerHTML='';}}
+document.getElementById('newSetItems').addEventListener('input',updateCopyPreview);
+
+document.getElementById('fab').onclick=()=>{selectedEmoji='🎒';selectedColor='orange';document.getElementById('newSetModalTitle').textContent='✨ 새 세트 만들기';document.getElementById('newSetName').value='';document.getElementById('newSetItems').value='';document.getElementById('copyPreview').style.display='none';initEmojiPicker();initColorPicker();document.getElementById('modalNewSet').classList.add('show');};
+document.getElementById('createSetBtn').onclick=()=>{
+  const name=document.getElementById('newSetName').value.trim(),itemsStr=document.getElementById('newSetItems').value.trim();
+  if(!name){alert('세트 이름을 입력해줘!');return;}
+  const items=itemsStr?itemsStr.split(',').map(s=>s.trim()).filter(Boolean):[];
+  sets.push({id:'set_'+Date.now(),name,icon:selectedEmoji,color:selectedColor,items});
+  save();renderHome();renderManage();document.getElementById('modalNewSet').classList.remove('show');showToast('✨ "'+name+'" 만들었어!');
+};
+document.getElementById('cancelNewSet').onclick=()=>document.getElementById('modalNewSet').classList.remove('show');
+
+// ── JSON Export/Import ──
+function exportJSON(){
+  const data={sets,checkedItems,exportedAt:new Date().toISOString()};
+  const blob=new Blob([JSON.stringify(data,null,2)],{type:'application/json'});
+  const url=URL.createObjectURL(blob);const a=document.createElement('a');
+  a.href=url;a.download=`준비물_백업_${new Date().toLocaleDateString('ko-KR').replace(/\./g,'').replace(/\s/g,'-')}.json`;
+  a.click();URL.revokeObjectURL(url);showToast('📦 JSON 파일 다운로드 완료!');menuDD.classList.remove('show');
+}
+function importJSON(file){
+  const reader=new FileReader();
+  reader.onload=e=>{
+    try{
+      const data=JSON.parse(e.target.result);if(!data.sets||!Array.isArray(data.sets))throw new Error('invalid');
+      const count=data.sets.length;
+      if(confirm(`세트 ${count}개를 가져올까?\n(기존 데이터에 추가돼)`)){
+        let added=0;data.sets.forEach(ns=>{ns.id='imp_'+Date.now()+'_'+(Math.random()*1000|0);
+          if(sets.find(s=>s.name===ns.name))ns.name+=' (가져옴)';
+          sets.push(ns);added++;
+          // restore checks
+          if(data.checkedItems){const oldId=Object.keys(data.checkedItems).find(k=>data.checkedItems[k]&&data.sets.find(ds=>ds.id===k&&ds.name.replace(' (가져옴)','')===ns.name.replace(' (가져옴)','')));/* skip complex merge */}
+        });
+        save();renderHome();renderManage();showToast(`📂 ${added}개 세트 가져왔어!`);
+      }
+    }catch(err){alert('유효하지 않은 파일이야!');}
+  };reader.readAsText(file);
+}
+document.getElementById('menuExportJSON').onclick=()=>exportJSON();
+document.getElementById('menuImportJSON').onclick=()=>{menuDD.classList.remove('show');document.getElementById('hiddenFileInput').click();};
+document.getElementById('hiddenFileInput').onchange=e=>{if(e.target.files[0])importJSON(e.target.files[0]);e.target.value='';};
+
+// ── URL Share ──
+function encodeData(){const data={s:sets.map(s=>({n:s.name,i:s.icon,c:s.color,t:s.items}))};return btoa(unescape(encodeURIComponent(JSON.stringify(data))));}
+function decodeData(encoded){try{const json=decodeURIComponent(escape(atob(encoded)));const data=JSON.parse(json);return data.s.map(s=>({id:'url_'+Date.now()+'_'+(Math.random()*1000|0),name:s.n,icon:s.i,color:s.c,items:s.t}));}catch(e){return null;}}
+function generateShareURL(){return window.location.origin+window.location.pathname+'?data='+encodeURIComponent(encodeData());}
+
+document.getElementById('menuShareURL').onclick=()=>{
+  menuDD.classList.remove('show');const url=generateShareURL();
+  document.getElementById('shareURLInput').value=url;
+  document.getElementById('shareSetCount').textContent=sets.length;
+  document.getElementById('shareItemCount').textContent=sets.reduce((a,s)=>a+s.items.length,0);
+  document.getElementById('shareNativeBtn').style.display=navigator.share?'block':'none';
+  document.getElementById('modalShareURL').classList.add('show');
+};
+document.getElementById('copyURLBtn').onclick=()=>{const inp=document.getElementById('shareURLInput');inp.select();navigator.clipboard.writeText(inp.value).then(()=>showToast('🔗 링크 복사 완료!')).catch(()=>{document.execCommand('copy');showToast('🔗 링크 복사 완료!');});};
+document.getElementById('shareNativeBtn').onclick=()=>{navigator.share({title:'🎒 준비물 챙기기',text:'내 준비물 세트를 공유할게!',url:document.getElementById('shareURLInput').value}).catch(()=>{});};
+document.getElementById('cancelShareURL').onclick=()=>document.getElementById('modalShareURL').classList.remove('show');
+
+document.getElementById('menuImportURL').onclick=()=>{menuDD.classList.remove('show');document.getElementById('importURLInput').value='';document.getElementById('modalImportURL').classList.add('show');};
+document.getElementById('importURLBtn').onclick=()=>{
+  const raw=document.getElementById('importURLInput').value.trim();let enc='';
+  try{enc=new URL(raw).searchParams.get('data');}catch(e){alert('유효한 URL을 붙여넣어줘!');return;}
+  if(!enc){alert('공유 데이터가 없는 URL이야!');return;}
+  const ns=decodeData(decodeURIComponent(enc));if(!ns||!ns.length){alert('데이터를 읽을 수 없어!');return;}
+  if(confirm(`세트 ${ns.length}개를 가져올까?`)){
+    let added=0;ns.forEach(s=>{if(sets.find(x=>x.name===s.name))s.name+=' (가져옴)';sets.push(s);added++;});
+    save();renderHome();renderManage();document.getElementById('modalImportURL').classList.remove('show');showToast(`📲 ${added}개 세트 가져왔어!`);
+  }
+};
+document.getElementById('cancelImportURL').onclick=()=>document.getElementById('modalImportURL').classList.remove('show');
+
+function checkURLImport(){
+  const enc=new URLSearchParams(window.location.search).get('data');if(!enc)return;
+  const ns=decodeData(decodeURIComponent(enc));if(!ns||!ns.length)return;
+  window.history.replaceState({},'',window.location.pathname);
+  setTimeout(()=>{
+    if(confirm(`공유받은 세트 ${ns.length}개를 가져올까?`)){
+      let added=0;ns.forEach(s=>{if(sets.find(x=>x.name===s.name))s.name+=' (공유)';sets.push(s);added++;});
+      save();renderHome();showToast(`📲 ${added}개 세트 가져왔어!`);
+    }
+  },500);
+}
+
+document.getElementById('menuResetAll').onclick=()=>{menuDD.classList.remove('show');if(confirm('정말 전체 초기화할까?\n모든 세트와 체크 기록이 사라져!')){if(confirm('진짜로? 되돌릴 수 없어!')){localStorage.removeItem('packingSets');localStorage.removeItem('packingChecks');sets=JSON.parse(JSON.stringify(DEFAULT_SETS));checkedItems={};save();renderHome();renderManage();showView('home');showToast('🗑️ 전체 초기화 완료!');}}};
+
+function showView(name){
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));const fab=document.getElementById('fab');
+  if(name==='home'){document.getElementById('view-home').classList.add('active');fab.classList.add('show');renderHome();setTab('home');}
+  else if(name==='checklist'){document.getElementById('view-checklist').classList.add('active');fab.classList.remove('show');}
+  else if(name==='manage'){document.getElementById('view-manage').classList.add('active');fab.classList.add('show');renderManage();setTab('manage');}
+}
+function setTab(t){document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active',b.dataset.tab===t));}
+document.querySelectorAll('.tab-btn').forEach(b=>{b.onclick=()=>showView(b.dataset.tab);});
+document.getElementById('backBtn').onclick=()=>{currentSetId=null;showView('home');};
+
+function launchConfetti(){const colors=['#f0e683','#efcf5b','#f2b54a','#ef6461','#3567a0','#e25582','#39b19a'];for(let i=0;i<40;i++){const p=document.createElement('div');p.className='confetti-piece';p.style.left=(Math.random()*100)+'vw';p.style.top=(Math.random()*30+10)+'vh';p.style.background=colors[Math.floor(Math.random()*colors.length)];p.style.width=(Math.random()*8+6)+'px';p.style.height=(Math.random()*8+6)+'px';p.style.borderRadius=Math.random()>.5?'50%':'2px';p.style.animationDuration=(Math.random()*.8+.8)+'s';p.style.animationDelay=(Math.random()*.5)+'s';document.body.appendChild(p);setTimeout(()=>p.remove(),2000);}}
+
+load();renderHome();document.getElementById('fab').classList.add('show');checkURLImport();
+</script>
+</body>
+</html>
