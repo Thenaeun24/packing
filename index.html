@@ -75,9 +75,9 @@
   .progress-text{font-size:13px;font-weight:600;color:var(--sub);margin-bottom:16px;text-align:right}
 
   .checklist{display:flex;flex-direction:column;gap:8px}
-  .check-item{background:var(--card);border-radius:16px;padding:16px 18px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 12px rgba(74,63,47,.05);cursor:pointer;transition:all .4s cubic-bezier(.4,0,.2,1);border:2px solid transparent;user-select:none;order:0}
+  .check-item{background:var(--card);border-radius:16px;padding:16px 18px;display:flex;align-items:center;gap:14px;box-shadow:0 2px 12px rgba(74,63,47,.05);cursor:pointer;transition:all .4s cubic-bezier(.4,0,.2,1);border:2px solid transparent;user-select:none}
   .check-item:hover{border-color:rgba(242,181,74,.15)}.check-item:active{transform:scale(.97)}
-  .check-item.checked{background:var(--checked-bg);border-color:rgba(57,177,154,.18);order:1;opacity:.7}
+  .check-item.checked{background:var(--checked-bg);border-color:rgba(57,177,154,.18);opacity:.7}
   .check-item.checked .item-text{text-decoration:line-through;color:var(--sub)}
   .check-item.checked .custom-check{background:var(--teal);border-color:var(--teal)}
   .check-item.checked .custom-check svg{opacity:1;transform:scale(1)}
@@ -87,7 +87,10 @@
   @keyframes popUncheck{0%{transform:scale(1)}50%{transform:scale(1.03)}100%{transform:scale(1)}}
   .custom-check{width:28px;height:28px;border-radius:10px;border:2.5px solid var(--tan);display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:all .3s cubic-bezier(.4,0,.2,1);background:#fff}
   .custom-check svg{width:16px;height:16px;stroke:#fff;stroke-width:3;fill:none;stroke-linecap:round;stroke-linejoin:round;opacity:0;transform:scale(.5);transition:all .3s cubic-bezier(.4,0,.2,1)}
-  .item-text{font-size:15px;font-weight:600;transition:all .3s}
+  .item-text{font-size:15px;font-weight:600;transition:all .3s;flex:1}
+  .drag-handle{padding:0 10px;font-size:18px;color:var(--sub);cursor:grab;margin-left:auto;-webkit-touch-callout:none}
+  .check-item.sortable-ghost{opacity:.4;background:rgba(242,181,74,.08)}
+  .check-item.sortable-chosen{box-shadow:0 6px 24px rgba(74,63,47,.15)}
 
   .reset-wrap{text-align:center;margin-top:20px}
   .reset-btn{padding:10px 24px;border-radius:50px;border:2px solid rgba(239,100,97,.2);background:transparent;color:var(--coral);font-size:13px;font-weight:700;cursor:pointer;transition:all .25s;font-family:inherit}
@@ -274,6 +277,15 @@
   <button class="big-btn secondary" id="cancelImportURL">취소</button>
 </div></div>
 
+<!-- Modal: Item Action (Long-press) -->
+<div class="modal-overlay" id="modalItemAction"><div class="modal">
+  <h2 id="itemActionTitle">📋 아이템</h2>
+  <button class="big-btn" id="itemEditBtn">✏️ 수정하기</button>
+  <button class="big-btn" id="itemDeleteBtn" style="background:linear-gradient(135deg,var(--coral),var(--pink));box-shadow:0 4px 20px rgba(239,100,97,.30);margin-top:8px">🗑️ 삭제하기</button>
+  <button class="big-btn secondary" id="itemActionCancel">닫기</button>
+</div></div>
+
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@latest/Sortable.min.js"></script>
 <script>
 // ═══════════════════════════════
 // ── PWA: Service Worker + Manifest (inline) ──
@@ -400,6 +412,7 @@ const EMOJIS=['🎒','✈️','🏕️','📚','💪','🏖️','🎿','🎵','�
 const COLORS=[{name:'yellow-light',hex:'#f0e683'},{name:'yellow',hex:'#efcf5b'},{name:'orange',hex:'#f2b54a'},{name:'coral',hex:'#ef6461'},{name:'blue',hex:'#3567a0'},{name:'pink',hex:'#e25582'},{name:'teal',hex:'#39b19a'},{name:'tan',hex:'#c4b07d'}];
 
 let sets=[],currentSetId=null,checkedItems={},editingSetId=null,selectedEmoji='🎒',selectedColor='orange';
+let longPressTriggered=false,checklistSortable=null,actionItemName=null;
 
 function load(){const s=localStorage.getItem('packingSets');sets=s?JSON.parse(s):JSON.parse(JSON.stringify(DEFAULT_SETS));const c=localStorage.getItem('packingChecks');if(c)checkedItems=JSON.parse(c);}
 function save(){localStorage.setItem('packingSets',JSON.stringify(sets));localStorage.setItem('packingChecks',JSON.stringify(checkedItems));}
@@ -429,10 +442,21 @@ function renderChecklist(){
   const unc=s.items.filter(i=>!checkedItems[s.id][i]),chk=s.items.filter(i=>checkedItems[s.id][i]);
   [...unc,...chk].forEach(item=>{
     const done=!!checkedItems[s.id][item];const el=document.createElement('div');
-    el.className='check-item'+(done?' checked':'');
-    el.innerHTML=`<div class="custom-check"><svg viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg></div><span class="item-text">${item}</span>`;
-    el.onclick=()=>toggleItem(s.id,item,el);list.appendChild(el);
+    el.className='check-item'+(done?' checked':'');el.dataset.item=item;
+    el.innerHTML=`<div class="custom-check"><svg viewBox="0 0 24 24"><polyline points="4 12 10 18 20 6"/></svg></div><span class="item-text">${item}</span><div class="drag-handle">≡</div>`;
+    el.onclick=(e)=>{if(longPressTriggered){longPressTriggered=false;return;}if(e.target.closest('.drag-handle'))return;toggleItem(s.id,item,el);};
+    const txt=el.querySelector('.item-text');let lpT=null;
+    txt.addEventListener('touchstart',function(){lpT=setTimeout(function(){longPressTriggered=true;if(navigator.vibrate)navigator.vibrate(30);openItemAction(item);},500);},{passive:true});
+    txt.addEventListener('touchmove',function(){clearTimeout(lpT);},{passive:true});
+    txt.addEventListener('touchend',function(){clearTimeout(lpT);},{passive:true});
+    txt.addEventListener('contextmenu',function(e){e.preventDefault();});
+    list.appendChild(el);
   });
+  if(checklistSortable)checklistSortable.destroy();
+  checklistSortable=Sortable.create(list,{handle:'.drag-handle',animation:150,onEnd:function(){
+    const ni=[];list.querySelectorAll('.check-item').forEach(function(el){ni.push(el.dataset.item);});
+    const cs=sets.find(x=>x.id===currentSetId);if(cs){cs.items=ni;save();}
+  }});
   document.getElementById('resetWrap').style.display=chk.length>0?'block':'none';updateProgress();
 }
 function toggleItem(sid,item,el){if(!checkedItems[sid])checkedItems[sid]={};const w=!!checkedItems[sid][item];checkedItems[sid][item]=!w;save();el.classList.add(w?'unchecking':'checking');setTimeout(()=>renderChecklist(),w?300:400);}
@@ -480,6 +504,25 @@ document.getElementById('saveItemsBtn').onclick=()=>{
   document.getElementById('modalEditItems').classList.remove('show');
 };
 document.getElementById('cancelEditItems').onclick=()=>document.getElementById('modalEditItems').classList.remove('show');
+
+function openItemAction(name){actionItemName=name;document.getElementById('itemActionTitle').textContent='📋 '+name;document.getElementById('modalItemAction').classList.add('show');}
+document.getElementById('itemEditBtn').onclick=()=>{
+  if(!actionItemName||!currentSetId)return;const s=sets.find(x=>x.id===currentSetId);if(!s)return;
+  document.getElementById('modalItemAction').classList.remove('show');
+  const nw=prompt('새 이름을 입력해줘:',actionItemName);if(!nw||!nw.trim())return;const trimmed=nw.trim();
+  if(trimmed===actionItemName)return;
+  if(s.items.includes(trimmed)){alert('이미 같은 이름의 아이템이 있어!');return;}
+  const idx=s.items.indexOf(actionItemName);if(idx!==-1)s.items[idx]=trimmed;
+  if(checkedItems[s.id]&&checkedItems[s.id][actionItemName]!==undefined){checkedItems[s.id][trimmed]=checkedItems[s.id][actionItemName];delete checkedItems[s.id][actionItemName];}
+  save();renderChecklist();showToast('✏️ 이름을 변경했어!');
+};
+document.getElementById('itemDeleteBtn').onclick=()=>{
+  if(!actionItemName||!currentSetId)return;if(!confirm('"'+actionItemName+'" 삭제할까?'))return;
+  const s=sets.find(x=>x.id===currentSetId);if(!s)return;
+  s.items=s.items.filter(i=>i!==actionItemName);if(checkedItems[s.id])delete checkedItems[s.id][actionItemName];
+  save();renderChecklist();document.getElementById('modalItemAction').classList.remove('show');showToast('🗑️ 삭제했어!');
+};
+document.getElementById('itemActionCancel').onclick=()=>document.getElementById('modalItemAction').classList.remove('show');
 
 function initEmojiPicker(){const w=document.getElementById('emojiPick');w.innerHTML='';EMOJIS.forEach(em=>{const b=document.createElement('div');b.className='emoji-opt'+(em===selectedEmoji?' sel':'');b.textContent=em;b.onclick=()=>{selectedEmoji=em;w.querySelectorAll('.emoji-opt').forEach(x=>x.classList.remove('sel'));b.classList.add('sel');};w.appendChild(b);});}
 function initColorPicker(){const w=document.getElementById('colorPick');w.innerHTML='';COLORS.forEach(c=>{const d=document.createElement('div');d.className='color-dot'+(c.name===selectedColor?' sel':'');d.style.background=c.hex;d.onclick=()=>{selectedColor=c.name;w.querySelectorAll('.color-dot').forEach(x=>x.classList.remove('sel'));d.classList.add('sel');};w.appendChild(d);});}
