@@ -623,12 +623,13 @@ load();renderHome();document.getElementById('fab').classList.add('show');checkUR
 
   document.addEventListener('touchend',function(){
     if(!tracking){return;}
-    if(dx>=THRESHOLD){
+    var checklistActive=document.getElementById('view-checklist').classList.contains('active');
+    if(dx>=THRESHOLD&&checklistActive){
       el.classList.add('finishing');
       setTimeout(function(){
         el.classList.remove('ready','finishing');
         arrow.style.cssText='';shadow.style.cssText='';
-        window.history.back();
+        document.getElementById('backBtn').click();
       },150);
     }else{
       el.classList.remove('ready');
