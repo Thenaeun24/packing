@@ -170,6 +170,14 @@
 
   .hidden-file{display:none}
   @media(max-width:400px){.header h1{font-size:22px}.container{padding:8px 14px}}
+
+  .swipe-back-indicator{position:fixed;left:0;top:0;width:0;height:100%;z-index:9998;pointer-events:none;overflow:visible}
+  .swipe-back-shadow{position:absolute;left:0;top:0;height:100%;width:0;background:linear-gradient(to right,rgba(74,63,47,.10),transparent);transition:none}
+  .swipe-back-arrow{position:absolute;top:50%;transform:translateY(-50%) scale(.6);opacity:0;width:38px;height:38px;background:rgba(74,63,47,.5);border-radius:50%;display:flex;align-items:center;justify-content:center;box-shadow:2px 0 20px rgba(74,63,47,.18);transition:none}
+  .swipe-back-arrow::after{content:'';display:block;width:12px;height:12px;border-left:2.5px solid #fff;border-bottom:2.5px solid #fff;transform:rotate(45deg);margin-left:4px}
+  .swipe-back-indicator.ready .swipe-back-arrow{background:rgba(74,63,47,.75);transform:translateY(-50%) scale(1)}
+  .swipe-back-indicator.finishing .swipe-back-arrow{transition:opacity .15s ease-out;opacity:0}
+  .swipe-back-indicator.finishing .swipe-back-shadow{transition:opacity .15s ease-out;opacity:0}
 </style>
 </head>
 <body>
@@ -575,6 +583,60 @@ document.getElementById('backBtn').onclick=()=>{currentSetId=null;showView('home
 function launchConfetti(){const colors=['#f0e683','#efcf5b','#f2b54a','#ef6461','#3567a0','#e25582','#39b19a'];for(let i=0;i<40;i++){const p=document.createElement('div');p.className='confetti-piece';p.style.left=(Math.random()*100)+'vw';p.style.top=(Math.random()*30+10)+'vh';p.style.background=colors[Math.floor(Math.random()*colors.length)];p.style.width=(Math.random()*8+6)+'px';p.style.height=(Math.random()*8+6)+'px';p.style.borderRadius=Math.random()>.5?'50%':'2px';p.style.animationDuration=(Math.random()*.8+.8)+'s';p.style.animationDelay=(Math.random()*.5)+'s';document.body.appendChild(p);setTimeout(()=>p.remove(),2000);}}
 
 load();renderHome();document.getElementById('fab').classList.add('show');checkURLImport();
+
+// ── Swipe Back Gesture (Edge Swipe → history.back) ──
+(function(){
+  var EDGE=30,THRESHOLD=80;
+  var tracking=false,startX=0,startY=0,dx=0,locked=false;
+  var el=document.createElement('div');
+  el.className='swipe-back-indicator';
+  el.innerHTML='<div class="swipe-back-shadow"></div><div class="swipe-back-arrow"></div>';
+  document.body.appendChild(el);
+  var arrow=el.querySelector('.swipe-back-arrow');
+  var shadow=el.querySelector('.swipe-back-shadow');
+
+  document.addEventListener('touchstart',function(e){
+    var t=e.touches[0];
+    if(t.clientX<=EDGE){tracking=true;startX=t.clientX;startY=t.clientY;dx=0;locked=false;
+      el.classList.remove('finishing','ready');}
+  },{passive:true});
+
+  document.addEventListener('touchmove',function(e){
+    if(!tracking)return;
+    var t=e.touches[0],mx=t.clientX-startX,my=Math.abs(t.clientY-startY);
+    if(!locked){
+      if(my>Math.abs(mx)){tracking=false;return;}
+      if(mx>8)locked=true;else return;
+    }
+    if(mx<0){mx=0;}
+    e.preventDefault();
+    dx=mx;
+    var progress=Math.min(dx/THRESHOLD,1);
+    arrow.style.left=(dx-20)+'px';
+    arrow.style.opacity=Math.min(progress*1.5,1);
+    arrow.style.transform='translateY(-50%) scale('+(0.6+progress*0.4)+')';
+    shadow.style.width=Math.min(dx*1.2,120)+'px';
+    shadow.style.opacity=progress;
+    if(dx>=THRESHOLD)el.classList.add('ready');
+    else el.classList.remove('ready');
+  },{passive:false});
+
+  document.addEventListener('touchend',function(){
+    if(!tracking){return;}
+    if(dx>=THRESHOLD){
+      el.classList.add('finishing');
+      setTimeout(function(){
+        el.classList.remove('ready','finishing');
+        arrow.style.cssText='';shadow.style.cssText='';
+        window.history.back();
+      },150);
+    }else{
+      el.classList.remove('ready');
+      arrow.style.cssText='';shadow.style.cssText='';
+    }
+    tracking=false;dx=0;locked=false;
+  },{passive:true});
+})();
 </script>
 </body>
 </html>
